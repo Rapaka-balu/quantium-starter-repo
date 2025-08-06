@@ -1,36 +1,55 @@
-import pandas as pd
+import csv
 import os
 
-# Folder where CSV files are located
-data_folder = 'data'
+DATA_DIRECTORY = "./data"           # Folder containing your CSV files
+OUTPUT_FILE_PATH = "./filtered_sales.csv"    # Output CSV file
 
-# Output list to store all filtered DataFrames
-all_data = []
+def process_files(data_dir, output_file):
+    header = ["sales", "date", "region"]
 
-# Loop through each file in the data folder
-for file_name in os.listdir(data_folder):
-    if file_name.endswith('.csv'):
-        file_path = os.path.join(data_folder, file_name)
+    with open(output_file, mode='w', newline='', encoding='utf-8') as output_fp:
+        writer = csv.writer(output_fp)
+        writer.writerow(header)
 
-        # Read CSV
-        df = pd.read_csv(file_path)
+        # Loop through all files in the data directory
+        for file_name in os.listdir(data_dir):
+            file_path = os.path.join(data_dir, file_name)
 
-        # Filter for Pink Morsel
-        df = df[df['product'] == 'Pink Morsel']
+            # Only process CSV files
+            if not file_name.lower().endswith('.csv'):
+                continue
 
-        # Calculate sales
-        df['sales'] = df['quantity'] * df['price']
+            with open(file_path, mode='r', encoding='utf-8') as input_fp:
+                reader = csv.reader(input_fp)
 
-        # Keep only sales, date, region
-        df = df[['sales', 'date', 'region']]
+                # Skip header row and process data rows
+                next(reader, None)
 
-        # Add to list
-        all_data.append(df)
+                for row in reader:
+                    if len(row) < 5:
+                        # Skip rows with insufficient columns
+                        continue
 
-# Combine all into one DataFrame
-final_df = pd.concat(all_data)
+                    product = row[0].strip()
+                    raw_price = row[1].strip()
+                    quantity = row[2].strip()
+                    transaction_date = row[3].strip()
+                    region = row[4].strip().lower()  # Normalize region to lowercase to match Dash filtering
 
-# Save to a new CSV
-final_df.to_csv('filtered_sales.csv', index=False)
+                    if product == "pink morsel":
+                        try:
+                            # Remove $ sign if present and convert price and quantity properly
+                            price = float(raw_price.replace('$', ''))
+                            qty = int(quantity)
+                            sale = price * qty
 
-print(" Data processed and saved to 'filtered_sales.csv'")
+                            # Write to output file: sales, date, region
+                            writer.writerow([sale, transaction_date, region])
+                        except ValueError:
+                            # Handle any conversion problems
+                            print(f"Skipping row due to conversion error: {row}")
+                            continue
+
+if __name__ == "__main__":
+    process_files(DATA_DIRECTORY, OUTPUT_FILE_PATH)
+    print(f"Filtered sales data successfully written to {OUTPUT_FILE_PATH}")
